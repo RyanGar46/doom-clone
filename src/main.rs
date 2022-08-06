@@ -147,63 +147,112 @@ int main(int argc, char* argv[])
 }
 */
 
-use glium::Surface;
+extern crate sdl2;
 
-#[macro_use]
-extern crate glium;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::{pixels, video};
 
-fn pixel() {}
+use sdl2::gfx::primitives::DrawRenderer;
+use sdl2::render::Canvas;
+
+//const TARGET_FPS: u64 = 20; No longer works
+const RESOLUTION_MULTIPLIER: u32 = 8;                   //0=160x120 1=360x240 4=640x480
+const SCREEN_WIDTH: u32 = 160 * RESOLUTION_MULTIPLIER;  //screen width
+const SCREEN_HEIGHT: u32 = 120 * RESOLUTION_MULTIPLIER; //screen height
+const HALF_SCREEN_WIDTH: u32 = SCREEN_WIDTH / 2;        //half of screen width
+const HALF_SCREEN_HEIGHT: u32 = SCREEN_HEIGHT / 2;      //half of screen height
+const PIXEL_SCALE: u32 = 4 / RESOLUTION_MULTIPLIER;     //OpenGL pixel scale
+const WINDOW_WIDTH: u32 = SCREEN_WIDTH * PIXEL_SCALE;   //OpenGL window width
+const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * PIXEL_SCALE; //OpenGL window height
+
+enum Colors {
+  Yellow,
+  YellowDarker,
+  Green,
+  GreenDarker,
+  Cyan,
+  CyanDarker,
+  Brown,
+  BrownDarker,
+  Background,
+}
+
+fn draw_pixel(canvas: &mut Canvas<video::Window>, x: i16, y: i16, c: Colors) {
+  let color = match c {
+    Colors::Yellow        => pixels::Color::RGB(255, 255, 0),
+    Colors::YellowDarker  => pixels::Color::RGB(160, 160, 0),
+    Colors::Green         => pixels::Color::RGB(0, 255, 0),
+    Colors::GreenDarker   => pixels::Color::RGB(0, 160, 0),
+    Colors::Cyan          => pixels::Color::RGB(0, 255, 255),
+    Colors::CyanDarker    => pixels::Color::RGB(0, 160, 160),
+    Colors::Brown         => pixels::Color::RGB(160, 100, 0),
+    Colors::BrownDarker   => pixels::Color::RGB(110, 50, 0),
+    Colors::Background    => pixels::Color::RGB(0, 60, 130),
+  };
+
+  let _ = canvas.pixel(x, y, color);
+}
 
 fn move_player() {}
 
-fn clear_background(target: &mut glium::Frame) {
-  target.clear_color(0.0, 0.0, 0.0, 1.0)
+fn clear_background(canvas: &mut Canvas<video::Window>) {
+  for x in 0..SCREEN_WIDTH as i16 {
+    for y in 0..SCREEN_HEIGHT as i16 {
+      draw_pixel(canvas, x, y, Colors::Background);
+    }
+  }
 }
 
-fn draw_3d() {}
+fn draw_3d(canvas: &mut Canvas<video::Window>) {}
 
-fn display_screen(target: &mut glium::Frame) {
-  clear_background(target);
+fn display_screen(canvas: &mut Canvas<video::Window>) {
+  clear_background(canvas);
+  move_player();
+  draw_3d(canvas);
 }
 
 fn keys_down() {}
 
 fn keys_up() {}
 
-fn init() {}
+fn init() {
+  println!("Game start");
+}
 
 fn exit() {}
 
-fn main() {
-  use glium::glutin;
+fn main() -> Result<(), String> {
+  let sdl_context = sdl2::init()?;
+  let video_subsys = sdl_context.video()?;
+  let window = video_subsys
+    .window("Doom Clone", SCREEN_WIDTH, SCREEN_HEIGHT)
+    .position_centered()
+    .opengl()
+    .build()
+    .map_err(|e| e.to_string())?;
 
-  let event_loop = glutin::event_loop::EventLoop::new();
-  let window_builder = glutin::window::WindowBuilder::new()
-    .with_title("Doom Clone");
-  let context_builder = glutin::ContextBuilder::new();
-  let display = glium::Display::new(window_builder, context_builder, &event_loop).unwrap();
+  let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+
+  canvas.set_draw_color(pixels::Color::RGB(0, 0, 0));
+  canvas.clear();
+  canvas.present();
+
+  let mut events = sdl_context.event_pump()?;
 
   init();
 
-  event_loop.run(move | event, _, control_flow| {
-    let mut target = display.draw();
-    display_screen(&mut target);
-    target.finish().unwrap();
-
-    let next_frame_time = std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-    *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
-
-    match event {
-      glutin::event::Event::WindowEvent { event, .. } => match event {
-
-        glutin::event::WindowEvent::CloseRequested => {
-          exit();
-          *control_flow = glutin::event_loop::ControlFlow::Exit;
-          return;
-        },
-        _ => return,
-      },
-      _ => (),
+  'main: loop {
+    for event in events.poll_iter() {
+      match event {
+        Event::Quit { .. } => break 'main,
+        _ => {}
+      }
     }
-  });
+
+    display_screen(&mut canvas);
+    canvas.present();
+  }
+
+  Ok(())
 }
