@@ -156,8 +156,8 @@ use sdl2::{pixels, video};
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 
-//const TARGET_FPS: u64 = 20; No longer works
-const RESOLUTION_MULTIPLIER: u32 = 8;                   //0=160x120 1=360x240 4=640x480
+const TARGET_FPS: u64 = 2000;
+const RESOLUTION_MULTIPLIER: u32 = 1;                   //0=160x120 1=360x240 4=640x480
 const SCREEN_WIDTH: u32 = 160 * RESOLUTION_MULTIPLIER;  //screen width
 const SCREEN_HEIGHT: u32 = 120 * RESOLUTION_MULTIPLIER; //screen height
 const HALF_SCREEN_WIDTH: u32 = SCREEN_WIDTH / 2;        //half of screen width
@@ -165,6 +165,31 @@ const HALF_SCREEN_HEIGHT: u32 = SCREEN_HEIGHT / 2;      //half of screen height
 const PIXEL_SCALE: u32 = 4 / RESOLUTION_MULTIPLIER;     //OpenGL pixel scale
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * PIXEL_SCALE;   //OpenGL window width
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * PIXEL_SCALE; //OpenGL window height
+
+struct Controls {
+  pub forward: bool,
+  pub left: bool,
+  pub backward: bool,
+  pub right: bool,
+  pub strafe_left: bool,
+  pub strafe_right: bool,
+  pub move_lock: bool,
+}
+
+impl Controls {
+  pub fn new() -> Self {
+    Self {
+      forward: false,
+      left: false,
+      backward: false,
+      right: false,
+      strafe_left: false,
+      strafe_right: false,
+      move_lock: false,
+    }
+  }
+}
+
 
 enum Colors {
   Yellow,
@@ -194,9 +219,44 @@ fn draw_pixel(canvas: &mut Canvas<video::Window>, x: i16, y: i16, c: Colors) {
   let _ = canvas.pixel(x, y, color);
 }
 
-fn move_player() {}
+fn move_player(controls: &Controls) {
+  if controls.move_lock {
+    if controls.forward {
+      println!("look up");
+    }
+    if controls.left {
+      println!("look left");
+    }
+    if controls.backward {
+      println!("look down");
+    }
+    if controls.right {
+      println!("look right");
+    }
+  } else {
+    if controls.forward {
+      println!("forward");
+    }
+    if controls.left {
+      println!("left");
+    }
+    if controls.backward {
+      println!("backward");
+    }
+    if controls.right {
+      println!("right");
+    }
+  }
+  if controls.strafe_left {
+    println!("strafe left");
+  }
+  if controls.strafe_right {
+    println!("strafe right");
+  }
+}
 
 fn clear_background(canvas: &mut Canvas<video::Window>) {
+  canvas.clear();
   for x in 0..SCREEN_WIDTH as i16 {
     for y in 0..SCREEN_HEIGHT as i16 {
       draw_pixel(canvas, x, y, Colors::Background);
@@ -206,27 +266,56 @@ fn clear_background(canvas: &mut Canvas<video::Window>) {
 
 fn draw_3d(canvas: &mut Canvas<video::Window>) {}
 
-fn display_screen(canvas: &mut Canvas<video::Window>) {
+fn display_screen(
+  canvas: &mut Canvas<video::Window>,
+  controls: &Controls,
+  delta_time: u128,
+) {
   clear_background(canvas);
-  move_player();
+  move_player(controls);
   draw_3d(canvas);
+  print!("delta: {}, fps: {}        \r", delta_time, 1_000_000_000 / delta_time);
 }
 
-fn keys_down() {}
+fn keys_down(controls: &mut Controls, keycode: Keycode) {
+  match keycode {
+    Keycode::W => controls.forward = true,
+    Keycode::A => controls.left = true,
+    Keycode::S => controls.backward = true,
+    Keycode::D => controls.right = true,
+    Keycode::Comma => controls.strafe_left = true,
+    Keycode::Period => controls.strafe_right = true,
+    Keycode::M => controls.move_lock = true,
+    _ => {},
+  }
+}
 
-fn keys_up() {}
+fn keys_up(controls: &mut Controls, keycode: Keycode) {
+  match keycode {
+    Keycode::W => controls.forward = false,
+    Keycode::A => controls.left = false,
+    Keycode::S => controls.backward = false,
+    Keycode::D => controls.right = false,
+    Keycode::Comma => controls.strafe_left = false,
+    Keycode::Period => controls.strafe_right = false,
+    Keycode::M => controls.move_lock = false,
+    _ => {},
+  }
+}
 
 fn init() {
   println!("Game start");
 }
 
-fn exit() {}
+fn exit() {
+  println!("Game exit");
+}
 
 fn main() -> Result<(), String> {
   let sdl_context = sdl2::init()?;
   let video_subsys = sdl_context.video()?;
   let window = video_subsys
-    .window("Doom Clone", SCREEN_WIDTH, SCREEN_HEIGHT)
+    .window("Doom Clone", WINDOW_WIDTH, WINDOW_HEIGHT)
     .position_centered()
     .opengl()
     .build()
@@ -237,21 +326,48 @@ fn main() -> Result<(), String> {
   canvas.set_draw_color(pixels::Color::RGB(0, 0, 0));
   canvas.clear();
   canvas.present();
-
+  
   let mut events = sdl_context.event_pump()?;
+  let mut controls = Controls::new();
+  let mut previous_frame = std::time::SystemTime::now();
 
   init();
-
+  
   'main: loop {
+    let current_frame = std::time::SystemTime::now();
+    let delta_time = current_frame.duration_since(previous_frame)
+      .unwrap()
+      .as_nanos();
+    
     for event in events.poll_iter() {
       match event {
-        Event::Quit { .. } => break 'main,
+        Event::KeyDown {
+          keycode: Some(keycode),
+          ..
+        } => {
+          keys_down(&mut controls, keycode)
+        },
+        Event::KeyUp {
+          keycode: Some(keycode),
+          ..
+        } => {
+          keys_up(&mut controls, keycode)
+        },
+        Event::Quit { .. } => {
+          exit();
+          break 'main;
+        },
         _ => {}
       }
     }
+    
+    if delta_time >= 1_000_000_000 / TARGET_FPS as u128 {
+      // Draw frame
+      display_screen(&mut canvas, &controls, delta_time);
+      canvas.present();
 
-    display_screen(&mut canvas);
-    canvas.present();
+      previous_frame = current_frame;
+    }
   }
 
   Ok(())
