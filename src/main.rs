@@ -156,7 +156,8 @@ use sdl2::{pixels, video};
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 
-const TARGET_FPS: u64 = 2000;
+const TARGET_FPS: u64 = 20;
+const ENABLE_TARGET_FPS: bool = true;
 const RESOLUTION_MULTIPLIER: i16 = 1;                   //0=160x120 1=360x240 4=640x480
 const SCREEN_WIDTH: i16 = 160 * RESOLUTION_MULTIPLIER;  //screen width
 const SCREEN_HEIGHT: i16 = 120 * RESOLUTION_MULTIPLIER; //screen height
@@ -189,7 +190,6 @@ impl Controls {
     }
   }
 }
-
 
 enum Colors {
   Yellow,
@@ -230,7 +230,15 @@ fn draw_pixel(canvas: &mut Canvas<video::Window>, x: i16, y: i16, c: Colors) {
     Colors::Background    => pixels::Color::RGB(0, 60, 130),
   };
 
-  let _ = canvas.pixel(x, y, color);
+  for y_offset in 0..PIXEL_SCALE {
+    for x_offset in 0..PIXEL_SCALE {
+      let _ = canvas.pixel(
+        x * PIXEL_SCALE + x_offset,
+        y * PIXEL_SCALE + y_offset,
+        color
+      );
+    }
+  }
 }
 
 fn move_player(controls: &Controls) {
@@ -387,7 +395,7 @@ fn main() -> Result<(), String> {
       }
     }
     
-    if delta_time >= 1_000_000_000 / TARGET_FPS as u128 {
+    if !ENABLE_TARGET_FPS || delta_time >= 1_000_000_000 / TARGET_FPS as u128 {
       // Draw frame
       display_screen(&mut canvas, &controls, delta_time);
       canvas.present();
