@@ -157,14 +157,14 @@ use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::render::Canvas;
 
 const TARGET_FPS: u64 = 2000;
-const RESOLUTION_MULTIPLIER: u32 = 1;                   //0=160x120 1=360x240 4=640x480
-const SCREEN_WIDTH: u32 = 160 * RESOLUTION_MULTIPLIER;  //screen width
-const SCREEN_HEIGHT: u32 = 120 * RESOLUTION_MULTIPLIER; //screen height
-const HALF_SCREEN_WIDTH: u32 = SCREEN_WIDTH / 2;        //half of screen width
-const HALF_SCREEN_HEIGHT: u32 = SCREEN_HEIGHT / 2;      //half of screen height
-const PIXEL_SCALE: u32 = 4 / RESOLUTION_MULTIPLIER;     //OpenGL pixel scale
-const WINDOW_WIDTH: u32 = SCREEN_WIDTH * PIXEL_SCALE;   //OpenGL window width
-const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * PIXEL_SCALE; //OpenGL window height
+const RESOLUTION_MULTIPLIER: i16 = 1;                   //0=160x120 1=360x240 4=640x480
+const SCREEN_WIDTH: i16 = 160 * RESOLUTION_MULTIPLIER;  //screen width
+const SCREEN_HEIGHT: i16 = 120 * RESOLUTION_MULTIPLIER; //screen height
+const HALF_SCREEN_WIDTH: i16 = SCREEN_WIDTH / 2;        //half of screen width
+const HALF_SCREEN_HEIGHT: i16 = SCREEN_HEIGHT / 2;      //half of screen height
+const PIXEL_SCALE: i16 = 4 / RESOLUTION_MULTIPLIER;     //OpenGL pixel scale
+const WINDOW_WIDTH: i16 = SCREEN_WIDTH * PIXEL_SCALE;   //OpenGL window width
+const WINDOW_HEIGHT: i16 = SCREEN_HEIGHT * PIXEL_SCALE; //OpenGL window height
 
 struct Controls {
   pub forward: bool,
@@ -201,6 +201,20 @@ enum Colors {
   Brown,
   BrownDarker,
   Background,
+}
+
+fn int_as_color(number: i8) -> Colors {
+  match number {
+    0 => Colors::Yellow,
+    1 => Colors::YellowDarker,
+    2 => Colors::Green,
+    3 => Colors::GreenDarker,
+    4 => Colors::Cyan,
+    5 => Colors::CyanDarker,
+    6 => Colors::Brown,
+    7 => Colors::BrownDarker,
+    8 | _ => Colors::Yellow,
+  }
 }
 
 fn draw_pixel(canvas: &mut Canvas<video::Window>, x: i16, y: i16, c: Colors) {
@@ -256,15 +270,27 @@ fn move_player(controls: &Controls) {
 }
 
 fn clear_background(canvas: &mut Canvas<video::Window>) {
-  canvas.clear();
-  for x in 0..SCREEN_WIDTH as i16 {
-    for y in 0..SCREEN_HEIGHT as i16 {
+  for y in 0..SCREEN_HEIGHT as i16 {
+    for x in 0..SCREEN_WIDTH as i16 {
       draw_pixel(canvas, x, y, Colors::Background);
     }
   }
 }
 
-fn draw_3d(canvas: &mut Canvas<video::Window>) {}
+fn draw_3d(canvas: &mut Canvas<video::Window>) {
+  let mut c = 0;
+
+  for y in 0..HALF_SCREEN_HEIGHT {
+    for x in 0..HALF_SCREEN_WIDTH {
+      draw_pixel(canvas, x, y, int_as_color(c));
+      
+      c += 1;
+      if c > 8 {
+        c = 0;
+      }
+    }
+  }
+}
 
 fn display_screen(
   canvas: &mut Canvas<video::Window>,
@@ -315,7 +341,7 @@ fn main() -> Result<(), String> {
   let sdl_context = sdl2::init()?;
   let video_subsys = sdl_context.video()?;
   let window = video_subsys
-    .window("Doom Clone", WINDOW_WIDTH, WINDOW_HEIGHT)
+    .window("Doom Clone", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
     .position_centered()
     .opengl()
     .build()
