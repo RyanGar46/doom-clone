@@ -234,8 +234,8 @@ fn draw_pixel(canvas: &mut Canvas<video::Window>, x: i16, y: i16, c: Colors) {
     for x_offset in 0..PIXEL_SCALE {
       let _ = canvas.pixel(
         x * PIXEL_SCALE + x_offset,
-        y * PIXEL_SCALE + y_offset,
-        color
+        WINDOW_HEIGHT - (y + 1) * PIXEL_SCALE + y_offset,
+        color,
       );
     }
   }
